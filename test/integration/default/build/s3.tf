@@ -13,6 +13,10 @@ resource "aws_s3_bucket" "aws_demo_bucket" {
   }
 }
 
+output "s3_bucket_name" {
+  value = "aws_demo_s3_bucket-${random_id.bucket_id.hex}"
+}
+
 # add s3 bucket elements - pub
 
 resource "aws_s3_bucket_object" "public-read" {
