@@ -14,6 +14,23 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
     'EC2 Security Group'
   end
 
+  # Underlying FilterTable implementation.
+  filter = FilterTable.create
+  filter.add_accessor(:where)
+        .add_accessor(:entries)
+        .add(:exists?) { |x| !x.entries.empty? }
+        .add(:group_ids, field: :group_id)
+        .add(:from_port, field: :from_port)
+        .add(:to_port, field: :to_port)
+        .add(:ip_protocol, field: :ip_protocol)
+        .add(:ip_ranges, field: :ip_ranges)
+        .add(:ipv_6_ranges, field: :ipv_6_ranges)
+  filter.connect(self, :access_key_data)
+
+  def access_key_data
+    @table
+  end
+
   def open_on_port?(port)
     @ingress_rules.each do |rule|
       next unless rule.from_port == port or rule.from_port == 'ALL'
@@ -89,8 +106,15 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
     @group_name    = dsg_response.security_groups[0].group_name
     @vpc_id        = dsg_response.security_groups[0].vpc_id
     @ingress_rules = dsg_response.security_groups[0].ip_permissions
-    # require 'pry'
-    # binding.pry
+    populate_ingress_rules
+  end
+
+  def populate_ingress_rules
+    @table = []
+    @ingress_rules.each do |rule|
+      @table.push(rule)
+    end
+    puts @table
   end
 
   class Backend
