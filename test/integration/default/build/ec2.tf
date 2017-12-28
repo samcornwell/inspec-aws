@@ -181,3 +181,34 @@ resource "aws_security_group" "alpha" {
 output "ec2_security_group_alpha_group_id" {
   value = "${aws_security_group.alpha.id}"
 }
+
+# Create ingress rules for specified security group
+resource "aws_security_group" "allow_all" {
+  name        = "allow_all"
+  description = "Allow all inbound traffic"
+  vpc_id      = "${data.aws_vpc.default.id}"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol = "tcp"
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.1/32", "10.0.0.2/32", "10.0.0.3/32"]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+output "ec2_security_group_allow_all_group_id" {
+  value = "${aws_security_group.allow_all.id}"
+}
