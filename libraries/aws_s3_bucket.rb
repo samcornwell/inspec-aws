@@ -103,6 +103,7 @@ class AwsS3Bucket < Inspec.resource(1)
 
   def fetch_region
     @region = AwsS3Bucket::BackendFactory.create.get_bucket_location(bucket: name)
+    return @region = 'us-east-1' unless @region != ''
   end
 
   # Uses the SDK API to really talk to AWS
