@@ -8,10 +8,22 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
   '
 
   include AwsResourceMixin
-  attr_reader :description, :group_id, :group_name, :vpc_id
+  attr_reader :description, :group_id, :group_name, :vpc_id, :ingress_rules
 
   def to_s
     'EC2 Security Group'
+  end
+
+  def open_on_port?(port)
+    @ingress_rules.each do |rule|
+      next unless rule.from_port == port or rule.from_port == 'ALL'
+      rule.cidr_ip.each do |ip_range|
+        if ip_range == '0.0.0.0/0'
+          return true
+        end
+      end
+    end
+    false
   end
 
   private
@@ -53,6 +65,7 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
       :group_id,
       :group_name,
       :vpc_id,
+      :ingress_rules,
     ].each do |criterion_name|
       val = instance_variable_get("@#{criterion_name}".to_sym)
       next if val.nil?
@@ -71,10 +84,13 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
     end
 
     @exists = true
-    @description = dsg_response.security_groups[0].description
-    @group_id   = dsg_response.security_groups[0].group_id
-    @group_name = dsg_response.security_groups[0].group_name
-    @vpc_id     = dsg_response.security_groups[0].vpc_id
+    @description   = dsg_response.security_groups[0].description
+    @group_id      = dsg_response.security_groups[0].group_id
+    @group_name    = dsg_response.security_groups[0].group_name
+    @vpc_id        = dsg_response.security_groups[0].vpc_id
+    @ingress_rules = dsg_response.security_groups[0].ip_permissions
+    # require 'pry'
+    # binding.pry
   end
 
   class Backend
