@@ -5,33 +5,17 @@ class AwsS3Bucket < Inspec.resource(1)
     describe aws_s3_bucket(name: 'test_bucket') do
       it { should exist }
       it { should_not have_public_files }
-      its('permissions_owner') { should cmp ['FULL_CONTROL'] }
+      its('permissions.owner') { should be_in ['FULL_CONTROL'] }
     end
   "
 
   include AwsResourceMixin
-  attr_reader :name, :permissions, :has_public_files, :policy
+  attr_reader :name, :permissions, :has_public_files, :region
   alias have_public_files? has_public_files
   alias has_public_files? has_public_files
 
   def to_s
     "S3 Bucket #{@name}"
-  end
-
-  def permissions_owner
-    @permissions[:owner]
-  end
-
-  def permissions_auth_users
-    @permissions[:authorizedUsers]
-  end
-
-  def permissions_everyone
-    @permissions[:everyone]
-  end
-
-  def permissions_log_group
-    @permissions[:logGroup]
   end
 
   private
@@ -56,7 +40,6 @@ class AwsS3Bucket < Inspec.resource(1)
     [
       :name,
       :permissions,
-      :policy,
       :region,
     ].each do |criterion_name|
       val = instance_variable_get("@#{criterion_name}".to_sym)
@@ -72,6 +55,7 @@ class AwsS3Bucket < Inspec.resource(1)
     begin
       compute_has_public_files
       fetch_permissions
+      fetch_region
     rescue Aws::IAM::Errors::NoSuchEntity
       @exists = false
       return
@@ -93,10 +77,14 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def fetch_permissions
-    @permissions = {
-      owner: [], authorizedUsers: [],
-      everyone: [], logGroup: []
-    }
+    # Use a Mash to make it easier to access hash elements in "its('permissions') {should ...}"
+    @permissions = Hashie::Mash.new({})
+    # Make sure standard extensions exist so we don't get nil for nil:NilClass
+    # when the user tests for extensions which aren't present
+    %w{
+      owner logGroup authUsers everyone
+    }.each { |perm| @permissions[perm] ||= [] }
+
     AwsS3Bucket::BackendFactory.create.get_bucket_acl(bucket: name).each do |grant|
       type = grant.grantee[:type]
       permission = grant[:permission]
@@ -104,13 +92,18 @@ class AwsS3Bucket < Inspec.resource(1)
       if type == 'CanonicalUser'
         @permissions[:owner].push(permission)
       elsif type == 'AmazonCustomerByEmail'
-        @permissions[:authorizedUsers].push(permission)
+        @permissions[:authUsers].push(permission)
       elsif type == 'Group' and uri =~ /AllUsers/
         @permissions[:everyone].push(permission)
       elsif type == 'Group' and uri =~ /LogDelivery/
         @permissions[:logGroup].push(permission)
       end
     end
+  end
+
+  def fetch_region
+    @region = AwsS3Bucket::BackendFactory.create.get_bucket_location(bucket: name)
+    return @region = 'us-east-1' unless @region != ''
   end
 
   # Uses the SDK API to really talk to AWS
@@ -128,6 +121,10 @@ class AwsS3Bucket < Inspec.resource(1)
 
       def get_object_acl(query)
         AWSConnection.new.s3_client.get_object_acl(query).grants
+      end
+
+      def get_bucket_location(query)
+        AWSConnection.new.s3_client.get_bucket_location(query).location_constraint
       end
     end
   end

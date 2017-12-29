@@ -1,0 +1,26 @@
+diff --git a/libraries/_aws.rb b/libraries/_aws.rb
+index 5adece0..89e3362 100644
+--- a/libraries/_aws.rb
++++ b/libraries/_aws.rb
+@@ -2,6 +2,6 @@
+ # loaded only if AWS resources are needed.
+ 
+ require 'aws-sdk' # TODO: split once ADK v3 is in use
+-require '_aws_backend_factory_mixin'
+-require '_aws_resource_mixin'
+-require '_aws_connection'
++require_relative '_aws_backend_factory_mixin'
++require_relative '_aws_resource_mixin'
++require_relative '_aws_connection'
+diff --git a/libraries/aws_cloudwatch_log_metric_filter.rb b/libraries/aws_cloudwatch_log_metric_filter.rb
+index bb1a316..6f42b44 100644
+--- a/libraries/aws_cloudwatch_log_metric_filter.rb
++++ b/libraries/aws_cloudwatch_log_metric_filter.rb
+@@ -21,6 +21,7 @@ class AwsCloudwatchLogMetricFilter < Inspec.resource(1)
+   end
+ EOX
+ 
++  require_relative '_aws.rb'
+   include AwsResourceMixin
+   attr_reader :filter_name, :log_group_name, :pattern, :metric_name, :metric_namespace
+ 

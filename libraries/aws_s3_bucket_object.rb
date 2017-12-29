@@ -1,30 +1,21 @@
 class AwsS3BucketObject < Inspec.resource(1)
   name 'aws_s3_bucket_object'
   desc 'Verifies settings for a s3 bucket object'
-  example '
-    describe aws_s3_bucket_object(name: bucket_name, key: file) do
+  example "
+    describe aws_s3_bucket_object(name: 'bucket_name', key: 'file_name') do
       it { should exist }
+      its('permissions.authUsers') { should be_in [] }
+      its('permissions.owner') { should be_in ['FULL_CONTROL'] }
+      its('permissions.everyone') { should be_in [] }
     end
-  '
+  "
 
   include AwsResourceMixin
-  attr_reader :name, :key, :id, :public, :auth_users_permissions
+  attr_reader :name, :key, :id, :public, :permissions
   alias public? public
 
   def to_s
-    "S3 Bucket Object, Bucket Name: #{@name}, Object Key: #{@key}"
-  end
-
-  def permissions_owner
-    @permissions[:owner]
-  end
-
-  def permissions_auth_users
-    @permissions[:auth_users]
-  end
-
-  def permissions_everyone
-    @permissions[:everyone]
+    "S3 Bucket Object #{@key} (#{@name})"
   end
 
   private
@@ -33,7 +24,7 @@ class AwsS3BucketObject < Inspec.resource(1)
     validated_params = check_resource_param_names(
       raw_params: raw_params,
       allowed_params: [:name, :key, :id],
-      allowed_scalar_name: :name,
+      allowed_scalar_name: [:name, :key],
       allowed_scalar_type: String,
     )
     if validated_params.empty?
@@ -50,7 +41,7 @@ class AwsS3BucketObject < Inspec.resource(1)
       :key,
       :id,
       :public,
-      :auth_users_permissions,
+      :permissions,
     ].each do |criterion_name|
       val = instance_variable_get("@#{criterion_name}".to_sym)
       next if val.nil?
@@ -61,9 +52,9 @@ class AwsS3BucketObject < Inspec.resource(1)
         },
       )
     end
-    fetch_permissions
-    begin
 
+    begin
+      fetch_permissions
     rescue Aws::IAM::Errors::NoSuchEntity
       @exists = false
       return
@@ -71,25 +62,27 @@ class AwsS3BucketObject < Inspec.resource(1)
     @exists = true
   end
 
+  # get the permissions of an objectg
   def fetch_permissions
-    grants = AwsS3BucketObject::BackendFactory.create.get_object_acl(bucket: name, key: key)
-    @permissions = {
-      owner: '',
-      auth_users: '',
-      everyone: '',
-    }
+    # Use a Mash to make it easier to access hash elements in "its('permissions') {should ...}"
+    @permissions = Hashie::Mash.new({})
+    # Make sure standard extensions exist so we don't get nil for nil:NilClass
+    # when the user tests for extensions which aren't present
+    %w{
+      owner authUsers everyone
+    }.each { |perm| @permissions[perm] ||= [] }
+
     @public = false
-    grants.each do |grant|
+    AwsS3BucketObject::BackendFactory.create.get_object_acl(bucket: name, key: key).each do |grant|
       permission = grant[:permission]
       type = grant.grantee[:type]
-      uri = grant.grantee[:uri]
       if type == 'Group'
         @public = true
-        @permissions[:everyone] = permission
+        @permissions[:everyone].push(permission)
       elsif type == 'AmazonCustomerByEmail'
-        @permissions[:auth_users] = permission
+        @permissions[:authUsers].push(permission)
       elsif type == 'CanonicalUser'
-        @permissions[:owner] = permission
+        @permissions[:owner].push(permission)
       end
     end
   end
