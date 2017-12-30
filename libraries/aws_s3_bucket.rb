@@ -1,3 +1,5 @@
+require '_aws'
+
 class AwsS3Bucket < Inspec.resource(1)
   name 'aws_s3_bucket'
   desc 'Verifies settings for a s3 bucket'
