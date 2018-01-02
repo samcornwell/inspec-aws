@@ -52,3 +52,9 @@ control "aws_ec2_security_group ingress_rules port 3389 open" do
     it { should_not be_open_on_port(3389) }
   end
 end
+
+control "aws_ec2_security_group ingress_rules properties" do
+  describe aws_ec2_security_group(fixtures['ec2_security_group_allow_all_group_id']).where(from_port: 0, to_port: 65535) do
+    its('to_port') { should eq [65535] }
+  end
+end
