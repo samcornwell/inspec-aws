@@ -22,6 +22,7 @@ class AWSConnection
       region: ENV['AWS_REGION'] || ENV['AWS_DEFAULT_REGION'],
       credentials: creds,
     }
+    opts[:endpoint] = ENV['AWS_ENDPOINT'] unless ENV['AWS_ENDPOINT'].nil?
     Aws.config.update(opts)
   end
 
