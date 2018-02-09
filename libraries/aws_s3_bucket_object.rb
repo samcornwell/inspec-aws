@@ -17,16 +17,30 @@ class AwsS3BucketObject < Inspec.resource(1)
   end
 
   def object_acl
-    # This is simple enough to inline it.
     @object_acl ||= fetch_object_acl
+  end
+
+  def object_owner
+    @object_owner ||= fetch_object_owner
   end
 
   def bucket_policy
     @bucket_policy ||= fetch_bucket_policy
   end
 
+  def has_acl_public_read?
+    false || \
+      object_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ }.map(&:permission).include?('READ') || \
+      object_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ }.map(&:permission).include?('READ')
+  end
+
+  def has_acl_public_write?
+    false || \
+      object_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ }.map(&:permission).include?('WRITE') || \
+      object_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ }.map(&:permission).include?('WRITE')
+  end
+
   def public?
-    # first line just for formatting
     false || \
       object_acl.any? { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ } || \
       object_acl.any? { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ } || \
@@ -73,6 +87,16 @@ class AwsS3BucketObject < Inspec.resource(1)
     end
   end
 
+  def fetch_object_owner
+    backend = AwsS3BucketObject::BackendFactory.create
+
+    begin
+      return backend.get_object_acl(bucket: bucket_name, key: object_key).owner
+    rescue Aws::S3::Errors::NoSuchKey, Aws::S3::Errors::NoSuchBucket
+      return {}
+    end
+  end
+
   def fetch_bucket_policy
     backend = AwsS3BucketObject::BackendFactory.create
 
@@ -95,7 +119,7 @@ class AwsS3BucketObject < Inspec.resource(1)
       BackendFactory.set_default_backend(self)
 
       def get_object_acl(query)
-        AWSConnection.new.s3_client.get_bucket_acl(query)
+        AWSConnection.new.s3_client.get_object_acl(query)
       end
 
       def get_bucket_location(query)

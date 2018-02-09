@@ -18,7 +18,6 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def bucket_acl
-    # This is simple enough to inline it.
     @bucket_acl ||= AwsS3Bucket::BackendFactory.create.get_bucket_acl(bucket: bucket_name).grants
   end
 
@@ -30,7 +29,18 @@ class AwsS3Bucket < Inspec.resource(1)
     @bucket_objects ||= AwsS3Bucket::BackendFactory.create.list_objects_v2(bucket: bucket_name).contents
   end
 
-  # RSpec will alias this to be_public
+  def has_acl_public_read?
+    false || \
+      bucket_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ }.map(&:permission).include?('READ') || \
+      bucket_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ }.map(&:permission).include?('READ')
+  end
+
+  def has_acl_public_write?
+    false || \
+      bucket_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ }.map(&:permission).include?('WRITE') || \
+      bucket_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ }.map(&:permission).include?('WRITE')
+  end
+
   def public?
     # first line just for formatting
     false || \

@@ -140,9 +140,9 @@ POLICY
 resource "aws_s3_bucket_object" "private" {
   bucket = "${aws_s3_bucket.auth.id}"
   acl = "private"
-  key    = "./data/private.txt"
-  source = "./data/private.txt"
-  etag   = "${md5(file("./data/private.txt"))}"
+  key    = "data/private.txt"
+  source = "data/private.txt"
+  etag   = "${md5(file("data/private.txt"))}"
 
   depends_on = ["aws_s3_bucket.auth"]
 }
