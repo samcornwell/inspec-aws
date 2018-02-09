@@ -18,7 +18,7 @@ class AwsS3BucketObject < Inspec.resource(1)
 
   def object_acl
     # This is simple enough to inline it.
-    @object_acl ||= AwsS3BucketObject::BackendFactory.create.get_object_acl(bucket: bucket_name, key: object_key).grants
+    @object_acl ||= fetch_object_acl
   end
 
   def bucket_policy
@@ -38,7 +38,7 @@ class AwsS3BucketObject < Inspec.resource(1)
   def validate_params(raw_params)
     validated_params = check_resource_param_names(
       raw_params: raw_params,
-      allowed_params: [:bucket_name, :object_key]
+      allowed_params: [:bucket_name, :object_key],
     )
 
     if validated_params.empty? or !validated_params.key?(:bucket_name) or !validated_params.key?(:object_key)
@@ -63,6 +63,16 @@ class AwsS3BucketObject < Inspec.resource(1)
     @exists = true
   end
 
+  def fetch_object_acl
+    backend = AwsS3BucketObject::BackendFactory.create
+
+    begin
+      return backend.get_object_acl(bucket: bucket_name, key: object_key).grants
+    rescue Aws::S3::Errors::NoSuchKey, Aws::S3::Errors::NoSuchBucket
+      return []
+    end
+  end
+
   def fetch_bucket_policy
     backend = AwsS3BucketObject::BackendFactory.create
 
@@ -74,7 +84,7 @@ class AwsS3BucketObject < Inspec.resource(1)
         statement.each_key { |k| lowercase_hash[k.downcase] = statement[k] }
         OpenStruct.new(lowercase_hash)
       end
-    rescue Aws::S3::Errors::NoSuchBucketPolicy
+    rescue Aws::S3::Errors::NoSuchBucketPolicy, Aws::S3::Errors::NoSuchBucket
       return []
     end
   end

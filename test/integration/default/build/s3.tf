@@ -132,3 +132,21 @@ resource "aws_s3_bucket_policy" "allow-02" {
 }
 POLICY
 }
+
+#=================================================================#
+#                       S3 Bucket Object
+#=================================================================#
+
+resource "aws_s3_bucket_object" "private" {
+  bucket = "${aws_s3_bucket.auth.id}"
+  acl = "private"
+  key    = "./data/private.txt"
+  source = "./data/private.txt"
+  etag   = "${md5(file("./data/private.txt"))}"
+
+  depends_on = ["aws_s3_bucket.auth"]
+}
+
+output "s3_bucket_object_private_name" {
+  value = "${aws_s3_bucket_object.private.id}"
+}
