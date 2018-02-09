@@ -12,6 +12,10 @@ class AwsS3BucketObject < Inspec.resource(1)
   include AwsResourceMixin
   attr_reader :bucket_name, :object_key, :region
 
+  def path
+    "#{@bucket_name}/#{@object_key}"
+  end
+
   def to_s
     "S3 Bucket Object #{@bucket_name}/#{@object_key}"
   end
