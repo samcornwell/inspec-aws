@@ -10,7 +10,7 @@ fixtures = {}
   )
 end
 
-control "aws_s3_bucket_object recall" do
+control "aws_s3_bucket_object combined" do
   bucket_object = aws_s3_bucket_object(
     bucket_name: fixtures['s3_bucket_auth_name'],
     object_key: fixtures['s3_bucket_object_private_name']
@@ -19,20 +19,10 @@ control "aws_s3_bucket_object recall" do
     bucket_name: fixtures['s3_bucket_auth_name'],
   )
 
-  describe bucket_object do
-    it { should exist }
-  end
-
-  describe "Bucket Policy: Empty policy on auth" do
-    subject do
-      bucket_object.bucket_policy
-    end
-    it { should be_empty }
-  end
-
   describe bucket do
     it { should have_acl_public_read }
     it { should_not have_acl_public_write }
+    its('bucket_policy') { should be_empty }
   end
 
   bucket.bucket_objects.each do |object|
@@ -40,7 +30,7 @@ control "aws_s3_bucket_object recall" do
       bucket_name: bucket.bucket_name,
       object_key: object.key
     ) do
-      it { should have_acl_public_read }
+      it { should_not have_acl_public_read }
       it { should_not have_acl_public_write }
     end
   end
