@@ -26,7 +26,7 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def bucket_objects
-    @bucket_objects ||= AwsS3Bucket::BackendFactory.create.list_objects_v2(bucket: bucket_name).contents
+    @bucket_objects ||= AwsS3Bucket::BackendFactory.create.list_objects(bucket: bucket_name).contents
   end
 
   def has_acl_public_read?
@@ -50,9 +50,13 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def has_access_logging_enabled?
-    return unless @exists
-    # This is simple enough to inline it.
-    !AwsS3Bucket::BackendFactory.create.get_bucket_logging(bucket: bucket_name).logging_enabled.nil?
+    return false unless @exists
+
+    begin
+      !AwsS3Bucket::BackendFactory.create.get_bucket_logging(bucket: bucket_name).logging_enabled.nil?
+    rescue Aws::S3::Errors::NotImplemented
+      return false
+    end
   end
 
   private
@@ -86,6 +90,8 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def fetch_bucket_policy
+    return [] unless @exists
+
     backend = AwsS3Bucket::BackendFactory.create
 
     begin
@@ -96,7 +102,7 @@ class AwsS3Bucket < Inspec.resource(1)
         statement.each_key { |k| lowercase_hash[k.downcase] = statement[k] }
         OpenStruct.new(lowercase_hash)
       end
-    rescue Aws::S3::Errors::NoSuchBucketPolicy
+    rescue Aws::S3::Errors::NoSuchBucketPolicy, Aws::S3::Errors::NotImplemented
       return []
     end
   end
@@ -122,8 +128,8 @@ class AwsS3Bucket < Inspec.resource(1)
         AWSConnection.new.s3_client.get_bucket_logging(query)
       end
 
-      def list_objects_v2(query)
-        AWSConnection.new.s3_client.list_objects_v2(query)
+      def list_objects(query)
+        AWSConnection.new.s3_client.list_objects(query)
       end
     end
   end

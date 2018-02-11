@@ -73,35 +73,33 @@ class AwsS3BucketObject < Inspec.resource(1)
     # region fetch as the existence check.
     begin
       @region = backend.get_bucket_location(bucket: bucket_name).location_constraint
-    rescue Aws::S3::Errors::NoSuchBucket
+      backend.get_object(bucket: bucket_name, key: object_key)
+    rescue Aws::S3::Errors::NoSuchBucket, Aws::S3::Errors::NoSuchKey
       @exists = false
       return
     end
-    # TODO: actually lookup object
     @exists = true
   end
 
   def fetch_object_acl
+    return [] unless @exists
+
     backend = AwsS3BucketObject::BackendFactory.create
 
-    begin
-      return backend.get_object_acl(bucket: bucket_name, key: object_key).grants
-    rescue Aws::S3::Errors::NoSuchKey, Aws::S3::Errors::NoSuchBucket
-      return []
-    end
+    backend.get_object_acl(bucket: bucket_name, key: object_key).grants
   end
 
   def fetch_object_owner
+    return {} unless @exists
+
     backend = AwsS3BucketObject::BackendFactory.create
 
-    begin
-      return backend.get_object_acl(bucket: bucket_name, key: object_key).owner
-    rescue Aws::S3::Errors::NoSuchKey, Aws::S3::Errors::NoSuchBucket
-      return {}
-    end
+    backend.get_object_acl(bucket: bucket_name, key: object_key).owner
   end
 
   def fetch_bucket_policy
+    return [] unless @exists
+
     backend = AwsS3BucketObject::BackendFactory.create
 
     begin
@@ -112,7 +110,7 @@ class AwsS3BucketObject < Inspec.resource(1)
         statement.each_key { |k| lowercase_hash[k.downcase] = statement[k] }
         OpenStruct.new(lowercase_hash)
       end
-    rescue Aws::S3::Errors::NoSuchBucketPolicy, Aws::S3::Errors::NoSuchBucket
+    rescue Aws::S3::Errors::NoSuchBucketPolicy, Aws::S3::Errors::NotImplemented
       return []
     end
   end
@@ -132,6 +130,10 @@ class AwsS3BucketObject < Inspec.resource(1)
 
       def get_bucket_policy(query)
         AWSConnection.new.s3_client.get_bucket_policy(query)
+      end
+
+      def get_object(query)
+        AWSConnection.new.s3_client.get_object(query)
       end
     end
   end
