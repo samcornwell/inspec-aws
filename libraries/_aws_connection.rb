@@ -22,7 +22,13 @@ class AWSConnection
       region: ENV['AWS_REGION'] || ENV['AWS_DEFAULT_REGION'],
       credentials: creds,
     }
-    opts[:endpoint] = ENV['AWS_ENDPOINT'] unless ENV['AWS_ENDPOINT'].nil?
+
+    if !ENV['AWS_ENDPOINT'].nil?
+      opts[:endpoint] = ENV['AWS_ENDPOINT']
+      # need the following because scality s3 server seems to expect path style
+      opts[:force_path_style] = true
+    end
+
     Aws.config.update(opts)
   end
 
