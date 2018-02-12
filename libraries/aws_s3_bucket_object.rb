@@ -44,6 +44,11 @@ class AwsS3BucketObject < Inspec.resource(1)
       object_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ }.map(&:permission).include?('WRITE')
   end
 
+  def has_acl_owner_full_control?
+    false || \
+      object_acl.select { |g| g.grantee.type == 'CanonicalUser' && g.grantee.id == object_owner.id }.map(&:permission).include?('FULL_CONTROL')
+  end
+
   def public?
     false || \
       object_acl.any? { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ } || \

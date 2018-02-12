@@ -18,7 +18,11 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def bucket_acl
-    @bucket_acl ||= AwsS3Bucket::BackendFactory.create.get_bucket_acl(bucket: bucket_name).grants
+    @bucket_acl ||= fetch_bucket_acl
+  end
+
+  def bucket_owner
+    @bucket_owner ||= fetch_bucket_owner
   end
 
   def bucket_policy
@@ -26,7 +30,7 @@ class AwsS3Bucket < Inspec.resource(1)
   end
 
   def bucket_objects
-    @bucket_objects ||= AwsS3Bucket::BackendFactory.create.list_objects(bucket: bucket_name).contents
+    @bucket_objects ||= fetch_bucket_objects
   end
 
   def has_acl_public_read?
@@ -39,6 +43,11 @@ class AwsS3Bucket < Inspec.resource(1)
     false || \
       bucket_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AllUsers/ }.map(&:permission).include?('WRITE') || \
       bucket_acl.select { |g| g.grantee.type == 'Group' && g.grantee.uri =~ /AuthenticatedUsers/ }.map(&:permission).include?('WRITE')
+  end
+
+  def has_acl_owner_full_control?
+    false || \
+      bucket_acl.select { |g| g.grantee.type == 'CanonicalUser' && g.grantee.id == bucket_owner.id }.map(&:permission).include?('FULL_CONTROL')
   end
 
   def public?
@@ -89,6 +98,22 @@ class AwsS3Bucket < Inspec.resource(1)
     @exists = true
   end
 
+  def fetch_bucket_acl
+    return [] unless @exists
+
+    backend = AwsS3Bucket::BackendFactory.create
+
+    backend.get_bucket_acl(bucket: bucket_name).grants
+  end
+
+  def fetch_bucket_owner
+    return {} unless @exists
+
+    backend = AwsS3Bucket::BackendFactory.create
+
+    backend.get_bucket_acl(bucket: bucket_name).owner
+  end
+
   def fetch_bucket_policy
     return [] unless @exists
 
@@ -105,6 +130,14 @@ class AwsS3Bucket < Inspec.resource(1)
     rescue Aws::S3::Errors::NoSuchBucketPolicy, Aws::S3::Errors::NotImplemented
       return []
     end
+  end
+
+  def fetch_bucket_objects
+    return [] unless @exists
+
+    backend = AwsS3Bucket::BackendFactory.create
+
+    backend.list_objects(bucket: bucket_name).contents
   end
 
   # Uses the SDK API to really talk to AWS
